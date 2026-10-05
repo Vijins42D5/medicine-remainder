@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Medicine Reminder</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #e8f1ff, #f8fbff);
+            margin: 0;
+            padding: 40px 15px;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: auto;
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+        }
+
+        h1 {
+            color: #2457a6;
+            margin-bottom: 25px;
+        }
+
+        h2 {
+            color: #333;
+            margin-top: 25px;
+        }
+
+        label {
+            display: block;
+            text-align: left;
+            margin: 12px 0 5px 20px;
+            font-weight: bold;
+            color: #444;
+        }
+
+        input, select {
+            width: 90%;
+            padding: 12px;
+            margin-bottom: 8px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 15px;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #2457a6;
+        }
+
+        button {
+            padding: 10px 15px;
+            margin: 5px 3px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            color: white;
+            font-weight: bold;
+        }
+
+        .add {
+            background-color: #2457a6;
+            width: 90%;
+            margin-top: 10px;
+            font-size: 16px;
+        }
+
+        .add:hover {
+            background-color: #17427e;
+        }
+
+        .sound {
+            background-color: #7b5cff;
+            width: 90%;
+            font-size: 15px;
+        }
+
+        .taken {
+            background-color: #4caf50;
+        }
+
+        .edit {
+            background-color: #f0ad4e;
+        }
+
+        .delete {
+            background-color: #d9534f;
+        }
+
+        .search-section {
+            margin-top: 30px;
+            padding: 15px;
+            background-color: #f5f8fc;
+            border-radius: 12px;
+        }
+
+        .search-section input,
+        .search-section select {
+            width: 90%;
+        }
+
+        li {
+            list-style: none;
+            margin: 15px 0;
+            padding: 18px;
+            background-color: #f8faff;
+            border: 1px solid #e0e7f0;
+            border-radius: 12px;
+            text-align: left;
+        }
+
+        .medicine-info {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .status {
+            display: inline-block;
+            margin: 10px 0;
+        }
+
+        .pending {
+            color: #d88900;
+            font-weight: bold;
+        }
+
+        .status-taken {
+            color: green;
+            font-weight: bold;
+        }
+
+        .completed {
+            opacity: 0.6;
+        }
+
+        .completed .medicine-info {
+            text-decoration: line-through;
+        }
+
+        .empty-message {
+            color: #888;
+            font-style: italic;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>💊 Medicine Reminder</h1>
+
+    <label>Medicine Name</label>
+
+    <input type="text"
+           id="medicineName"
+           placeholder="Enter medicine name">
+
+    <label>Reminder Time</label>
+
+    <input type="time"
+           id="medicineTime">
+
+    <label>Time of Day</label>
+
+    <select id="timeOfDay">
+        <option value="Morning">Morning</option>
+        <option value="Afternoon">Afternoon</option>
+        <option value="Night">Night</option>
+    </select>
+
+    <label>Reminder Date</label>
+
+    <input type="date"
+           id="medicineDate">
+
+    <br>
+
+    <button class="add"
+            onclick="addReminder()">
+        ➕ Add Reminder
+    </button>
+
+    <button class="sound"
+            onclick="playReminderSound()">
+        🔔 Test Sound
+    </button>
+
+    <div class="search-section">
+
+        <h2>🔎 Search & Filter</h2>
+
+        <input type="text"
+               id="searchInput"
+               placeholder="Search medicine..."
+               oninput="showReminders()">
+
+        <select id="statusFilter"
+                onchange="showReminders()">
+
+            <option value="All">
+                All Reminders
+            </option>
+
+            <option value="Pending">
+                Pending
+            </option>
+
+            <option value="Taken">
+                Taken
+            </option>
+
+        </select>
+
+    </div>
+
+    <h2>📋 Today's Reminders</h2>
+
+    <ul id="reminderList"></ul>
+
+</div>
+
+<script>
+
+let reminders =
+    JSON.parse(localStorage.getItem("reminders")) || [];
+
+let lastAlert = "";
+
+function playReminderSound() {
+
+    const AudioContext =
+        window.AudioContext ||
+        window.webkitAudioContext;
+
+    if (!AudioContext) {
+        alert("Your browser does not support sound.");
+        return;
+    }
+
+    const audioContext = new AudioContext();
+
+    const oscillator =
+        audioContext.createOscillator();
+
+    const gainNode =
+        audioContext.createGain();
+
+    oscillator.connect(gainNode);
+
+    gainNode.connect(audioContext.destination);
+
+    oscillator.type = "sine";
+
+    oscillator.frequency.value = 800;
+
+    gainNode.gain.setValueAtTime(
+        0.2,
+        audioContext.currentTime
+    );
+
+    oscillator.start();
+
+    oscillator.stop(
+        audioContext.currentTime + 0.8
+    );
+}
+
+function showReminders() {
+
+    let list =
+        document.getElementById("reminderList");
+
+    let searchText =
+        document.getElementById("searchInput").value
+        .toLowerCase();
+
+    let statusFilter =
+        document.getElementById("statusFilter").value;
+
+    list.innerHTML = "";
+
+    let found = false;
+
+    reminders.forEach(function(reminder, index) {
+
+        let medicineName =
+            reminder.medicine.toLowerCase();
+
+        if (!medicineName.includes(searchText)) {
+            return;
+        }
+
+        if (
+            statusFilter === "Pending" &&
+            reminder.taken
+        ) {
+            return;
+        }
+
+        if (
+            statusFilter === "Taken" &&
+            !reminder.taken
+        ) {
+            return;
+        }
+
+        found = true;
+
+        let item =
+            document.createElement("li");
+
+        if (reminder.taken) {
+            item.classList.add("completed");
+        }
+
+        let statusText;
+        let statusClass;
+
+        if (reminder.taken) {
+
+            statusText = "🟢 Taken";
+            statusClass = "status-taken";
+
+        } else {
+
+            statusText = "🟠 Pending";
+            statusClass = "pending";
+
+        }
+
+        item.innerHTML =
+
+            "<span class='medicine-info'>" +
+            "💊 " +
+            reminder.medicine +
+            " - " +
+            reminder.time +
+            " (" +
+            reminder.timeOfDay +
+            ")" +
+            " 📅 " +
+            (reminder.date || "No date") +
+            "</span>" +
+
+            "<br>" +
+
+            "<span class='status " +
+            statusClass +
+            "'>" +
+            statusText +
+            "</span>" +
+
+            "<br>" +
+
+            '<button class="taken" ' +
+            'onclick="markTaken(' +
+            index +
+            ')">Taken</button>' +
+
+            '<button class="edit" ' +
+            'onclick="editReminder(' +
+            index +
+            ')">Edit</button>' +
+
+            '<button class="delete" ' +
+            'onclick="deleteReminder(' +
+            index +
+            ')">Delete</button>';
+
+        list.appendChild(item);
+
+    });
+
+    if (!found) {
+
+        list.innerHTML =
+            "<p class='empty-message'>" +
+            "No reminders found." +
+            "</p>";
+
+    }
+}
+
+function addReminder() {
+
+    let medicine =
+        document.getElementById("medicineName").value;
+
+    let time =
+        document.getElementById("medicineTime").value;
+
+    let timeOfDay =
+        document.getElementById("timeOfDay").value;
+
+    let date =
+        document.getElementById("medicineDate").value;
+
+    if (
+        medicine === "" ||
+        time === "" ||
+        date === ""
+    ) {
+
+        alert(
+            "Please enter medicine name, time and date"
+        );
+
+        return;
+    }
+
+    reminders.push({
+
+        medicine: medicine,
+
+        time: time,
+
+        timeOfDay: timeOfDay,
+
+        date: date,
+
+        taken: false
+
+    });
+
+    localStorage.setItem(
+        "reminders",
+        JSON.stringify(reminders)
+    );
+
+    showReminders();
+
+    document.getElementById(
+        "medicineName"
+    ).value = "";
+
+    document.getElementById(
+        "medicineTime"
+    ).value = "";
+
+    document.getElementById(
+        "medicineDate"
+    ).value = "";
+}
+
+function markTaken(index) {
+
+    reminders[index].taken = true;
+
+    localStorage.setItem(
+        "reminders",
+        JSON.stringify(reminders)
+    );
+
+    showReminders();
+}
+
+function editReminder(index) {
+
+    let newMedicine =
+        prompt(
+            "Enter medicine name:",
+            reminders[index].medicine
+        );
+
+    if (newMedicine === null) {
+        return;
+    }
+
+    let newTime =
+        prompt(
+            "Enter time:",
+            reminders[index].time
+        );
+
+    if (newTime === null) {
+        return;
+    }
+
+    let newDate =
+        prompt(
+            "Enter date (YYYY-MM-DD):",
+            reminders[index].date || ""
+        );
+
+    if (newDate === null) {
+        return;
+    }
+
+    reminders[index].medicine =
+        newMedicine;
+
+    reminders[index].time =
+        newTime;
+
+    reminders[index].date =
+        newDate;
+
+    localStorage.setItem(
+        "reminders",
+        JSON.stringify(reminders)
+    );
+
+    showReminders();
+}
+
+function deleteReminder(index) {
+
+    reminders.splice(index, 1);
+
+    localStorage.setItem(
+        "reminders",
+        JSON.stringify(reminders)
+    );
+
+    showReminders();
+}
+
+setInterval(function() {
+
+    let now = new Date();
+
+    let currentHour =
+        String(now.getHours()).padStart(2, "0");
+
+    let currentMinute =
+        String(now.getMinutes()).padStart(2, "0");
+
+    let currentTime =
+        currentHour +
+        ":" +
+        currentMinute;
+
+    let currentDate =
+        now.getFullYear() +
+        "-" +
+        String(now.getMonth() + 1).padStart(2, "0") +
+        "-" +
+        String(now.getDate()).padStart(2, "0");
+
+    reminders.forEach(function(reminder, index) {
+
+        if (
+            reminder.date === currentDate &&
+            reminder.time === currentTime &&
+            !reminder.taken
+        ) {
+
+            let alertKey =
+                reminder.date +
+                "-" +
+                reminder.time +
+                "-" +
+                index;
+
+            if (alertKey !== lastAlert) {
+
+                lastAlert = alertKey;
+
+                playReminderSound();
+
+                alert(
+                    "💊 Time to take: " +
+                    reminder.medicine
+                );
+            }
+        }
+    });
+
+}, 60000);
+
+showReminders();
+
+</script>
+
+</body>
+</html>
